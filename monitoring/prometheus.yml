@@ -1,0 +1,40 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # FastAPI built-in /metrics endpoint
+  - job_name: "fastapi_backend"
+    static_configs:
+      - targets: ["backend:8000"]
+    metrics_path: /metrics
+
+  # Node Exporter — EC2 host metrics
+  - job_name: "node_exporter"
+    static_configs:
+      - targets: ["node_exporter:9100"]
+
+  # Blackbox — probe your live HTTP endpoints
+  - job_name: "blackbox_http"
+    metrics_path: /probe
+    params:
+      module: [http_2xx]    # Expect HTTP 200 response
+    static_configs:
+      - targets:
+          - http://frontend:80          # Is frontend UP?
+          - http://backend:8000/        # Is backend root UP?
+          - http://backend:8000/users   # Is /users endpoint UP?
+          - http://backend:8000/docs   # Is /docs endpoint UP?
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox_exporter:9115
